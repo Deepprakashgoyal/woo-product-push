@@ -5,8 +5,9 @@ function WPP_add_website($website_url, $consumer_key, $consumer_secret, $registe
 	$verification = WPP_website_verify($consumer_key, $consumer_secret, $website_url);
     if($verification){
         global $wpdb;
+        $table_name = $wpdb->prefix . 'WPP_websites';
         if( is_numeric($editid) && $editid != '' ) {
-            $result = $wpdb->update('WPP_websites', array(
+            $result = $wpdb->update( $table_name, array(
                 'website_url' => $website_url,
                 'consumer_key' => $consumer_key,
                 'consumer_secret'  => $consumer_secret,
@@ -14,7 +15,7 @@ function WPP_add_website($website_url, $consumer_key, $consumer_secret, $registe
                 array( 'id' => $editid )
             );
         } else {
-            $result = $wpdb->insert('WPP_websites', array(
+            $result = $wpdb->insert( $table_name, array(
                 'website_url' => $website_url,
                 'consumer_key' => $consumer_key,
                 'consumer_secret'  => $consumer_secret,
@@ -30,9 +31,10 @@ function WPP_add_website($website_url, $consumer_key, $consumer_secret, $registe
 
 function WPP_delete_website($editid) {
     global $wpdb;
+    $table_name = $wpdb->prefix . 'WPP_websites';
     $result = false;
     if( is_numeric($editid) && $editid != '' ) {
-        $result = $wpdb->delete('WPP_websites', array( 'id' => $editid ));
+        $result = $wpdb->delete( $table_name, array( 'id' => $editid ));
     }
     return $result;
 }
@@ -74,7 +76,8 @@ function WPP_ajax_push_categories(){
         $website_id = $_POST['id'];
 
         global $wpdb;
-        $website_data = $wpdb->get_results( "SELECT * FROM WPP_websites where id = $website_id");
+        $table_name = $wpdb->prefix . 'WPP_websites';
+        $website_data = $wpdb->get_results( "SELECT * FROM $table_name  where id = $website_id");
         if(!empty($website_data )){
             $consumer_key = $website_data[0]->consumer_key;
             $consumer_secret = $website_data[0]->consumer_secret;
@@ -165,7 +168,8 @@ function WPP_push_category(){
         $name = $_POST['name'];
 
         global $wpdb;
-        $website_data = $wpdb->get_results( "SELECT * FROM WPP_websites where id = $website_id");
+        $table_name = $wpdb->prefix . 'WPP_websites';
+        $website_data = $wpdb->get_results( "SELECT * FROM  $table_name  where id = $website_id");
         if(!empty($website_data )){
             $consumer_key = $website_data[0]->consumer_key;
             $consumer_secret = $website_data[0]->consumer_secret;
@@ -225,7 +229,8 @@ function WPP_push_child_categories(){
 
         if(!empty($parent_categories)){
             global $wpdb;
-            $website_data = $wpdb->get_results( "SELECT * FROM WPP_websites where id = $website_id");
+            $table_name = $wpdb->prefix . 'WPP_websites';
+            $website_data = $wpdb->get_results( "SELECT * FROM $table_name where id = $website_id");
             if(!empty($website_data )){
                 $consumer_key = $website_data[0]->consumer_key;
                 $consumer_secret = $website_data[0]->consumer_secret;
@@ -300,7 +305,8 @@ function WPP_ajax_push_products(){
         $website_id = $_POST['id'];
 
         global $wpdb;
-        $website_data = $wpdb->get_results( "SELECT * FROM WPP_websites where id = $website_id");
+        $table_name = $wpdb->prefix . 'WPP_websites';
+        $website_data = $wpdb->get_results( "SELECT * FROM $table_name where id = $website_id");
         if(!empty($website_data )){
             $consumer_key = $website_data[0]->consumer_key;
             $consumer_secret = $website_data[0]->consumer_secret;
@@ -433,7 +439,8 @@ function WPP_ajax_push_product(){
         $name = $_POST['name'];
 
         global $wpdb;
-        $website_data = $wpdb->get_results( "SELECT * FROM WPP_websites where id = $website_id");
+        $table_name = $wpdb->prefix . 'WPP_websites';
+        $website_data = $wpdb->get_results( "SELECT * FROM $table_name where id = $website_id");
         if(!empty($website_data )){
             $consumer_key = $website_data[0]->consumer_key;
             $consumer_secret = $website_data[0]->consumer_secret;

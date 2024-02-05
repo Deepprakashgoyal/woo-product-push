@@ -51,7 +51,8 @@ function WPP_admin_sites_ui() {
 		}
 	}
 	global $wpdb;
-    $websites = $wpdb->get_results( "SELECT * FROM WPP_websites");
+	$table_name = $wpdb->prefix . 'WPP_websites';
+    $websites = $wpdb->get_results( "SELECT * FROM $table_name");
     $cpage = isset($_GET['pg']) ? $_GET['pg'] : 1;
     $cpage = $cpage != '' ? (($cpage-1)*10) : 0;
 	$websitesNew = array_slice($websites, $cpage, 10, true);

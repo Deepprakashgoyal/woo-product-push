@@ -12,12 +12,13 @@ if (! defined( 'ABSPATH' )) {
 	exit;
 }
 global $wpdb;
-$websites = $wpdb->get_results( "SELECT * FROM WPP_websites");
+$table_name = $wpdb->prefix . 'WPP_websites';
+$websites = $wpdb->get_results( "SELECT * FROM $table_name");
 
 
 if(isset($_GET['website_id']) && $_GET['website_id'] !== ""){
     $website_id = $_GET['website_id'];
-    $website_url= $wpdb->get_results( "SELECT website_url FROM WPP_websites where id = $website_id");
+    $website_url= $wpdb->get_results( "SELECT website_url FROM $table_name where id = $website_id");
     ?>
     <div>
         <h3>Website : <a id="website_url" href="<?php echo $website_url[0]->website_url?>"><?php echo $website_url[0]->website_url?></a></h3>
@@ -204,7 +205,8 @@ if(isset($_GET['website_id']) && $_GET['website_id'] !== ""){
     <?php
 }else{
     global $wpdb;
-    $websites = $wpdb->get_results( "SELECT * FROM WPP_websites");
+    $table_name = $wpdb->prefix . 'WPP_websites';
+    $websites = $wpdb->get_results( "SELECT * FROM $table_name");
 
     if(!empty($websites)): ?>
     <section>
