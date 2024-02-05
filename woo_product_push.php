@@ -193,3 +193,8 @@ function product_insert(){
 }
 
 
+
+add_action('init', 'disable_heartbeat', 1);
+function disable_heartbeat() {
+    wp_deregister_script('heartbeat');
+}
