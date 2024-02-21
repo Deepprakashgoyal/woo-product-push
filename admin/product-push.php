@@ -19,24 +19,66 @@ $websites = $wpdb->get_results( "SELECT * FROM $table_name");
 if(isset($_GET['website_id']) && $_GET['website_id'] !== ""){
     $website_id = $_GET['website_id'];
     $website_url= $wpdb->get_results( "SELECT website_url FROM $table_name where id = $website_id");
+    $website_data = $wpdb->get_results( "SELECT * FROM $table_name where id = $website_id");
     ?>
     <div>
-        <h3>Website : <a id="website_url" href="<?php echo $website_url[0]->website_url?>"><?php echo $website_url[0]->website_url?></a></h3>
+        <h3>Website : <a id="website_url" data-id="<?= $website_id?>" href="<?php echo $website_url[0]->website_url?>"><?php echo $website_url[0]->website_url?></a></h3>
         <!-- <button class="button ajax-action-btn" id="" data-id="<?php echo $website_id ?>">Push All Products</button>
         <button class="button ajax-action-btn" id="fetch_products" data-id="<?php echo $website_id ?>">Fetch Products</button>
         <button class="button clear-data">Clear</button>
         <button class="button reload">Reload</button> -->
 
         <nav class="nav-tab-wrapper wpp-nav-tab-wrapper">
-			<a href="<?php echo  admin_url('admin.php?page=product-push&website_id='.$website_id.'&tab=simple')?>" class="nav-tab nav-tab-active">Simple Products</a>
-			<a href="<?php echo  admin_url('admin.php?page=product-push&website_id='.$website_id.'&tab=sku-missing');?>" class="nav-tab ">SKU Missing Products</a>
-            <a href="<?php echo  admin_url('admin.php?page=product-push&website_id='.$website_id.'&tab=variable');?>" class="nav-tab ">Variable Products</a>
+			<a href="<?php echo  admin_url('admin.php?page=product-push&website_id='.$website_id.'&tab=1')?>" class="nav-tab nav-tab-active">Simple Products</a>
+            <a href="<?php echo  admin_url('admin.php?page=product-push&website_id='.$website_id.'&tab=2');?>" class="nav-tab ">Variable Products</a>
+            <a href="<?php echo  admin_url('admin.php?page=product-push&website_id='.$website_id.'&tab=3');?>" class="nav-tab ">SKU Missing Products</a>
         </nav>
 
         <div class="result">
+
         <?php 
 
-        if(isset($_GET['tab']) && $_GET['tab'] == 'simple'){
+        if(!empty($website_data )){
+            $consumer_key = $website_data[0]->consumer_key;
+            $consumer_secret = $website_data[0]->consumer_secret;
+            $website_url = $website_data[0]->website_url;
+            $category_endpoint = '/wp-json/wc/v3/products/categories';
+            $category_url = $website_url . $category_endpoint . '?per_page=100&parent=0';
+
+            $ch = curl_init($category_url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HTTPGET, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+                'Content-Type: application/json',
+                'Authorization: Basic ' . base64_encode("$consumer_key:$consumer_secret"),
+            ));
+
+            $response = curl_exec($ch);
+            $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+            if (!curl_errno($ch) && $http_code === 200) {
+                $decoded_response = json_decode($response, true);
+            }
+        }
+        
+        ?>
+
+        <div style="margin-top: 20px;">
+            <select name="" id="website-category">
+                <option value="">--Select Category--</option>
+                <?php if(!empty($decoded_response)): ?>
+                    <?php foreach($decoded_response as $category): ?>
+                        <option value="<?= $category['id'] ?>"><?= $category['name'] ?></option>
+                    <?php endforeach; ?>
+                <?php endif;?>
+            </select>
+            <img class="cat-spinnner" style="display: none;" src="<?= get_admin_url() . 'images/spinner.gif'  ?>" alt="">
+        </div>
+
+
+        <?php 
+
+        if(isset($_GET['tab']) && $_GET['tab'] == '1'){
             $products = wc_get_products(array(
                 'status' => 'publish',
                 'limit' => 100,
@@ -54,7 +96,7 @@ if(isset($_GET['website_id']) && $_GET['website_id'] !== ""){
                 echo "</ol>";
             }
 
-        }else if(isset($_GET['tab']) && $_GET['tab'] == 'variable'){
+        }else if(isset($_GET['tab']) && $_GET['tab'] == '2'){
             $products = wc_get_products(array(
                 'status' => 'publish',
                 'limit' => 100,
@@ -69,7 +111,7 @@ if(isset($_GET['website_id']) && $_GET['website_id'] !== ""){
                 echo "</ol>";
             }
             
-        }else if(isset($_GET['tab']) && $_GET['tab'] == 'sku-missing'){
+        }else if(isset($_GET['tab']) && $_GET['tab'] == '3'){
             $products = wc_get_products(array(
                 'status' => 'publish',
                 'limit' => 100,
@@ -81,7 +123,7 @@ if(isset($_GET['website_id']) && $_GET['website_id'] !== ""){
                 foreach ($products as $product) {
                     $sku = $product->get_sku();
                     if (empty($sku)) {
-                        echo "<li data-id='" . $product->get_id() . "' data-name='" . $product->name . "' data-slug='" . $product->slug . "'>".$product->name.  ": <span class='push_product button button-success'>Sync</span></li>";
+                        echo "<li data-id='" . $product->get_id() . "' data-name='" . $product->name . "' data-slug='" . $product->slug . "'>".$product->name.  "</li>";
                     }
                 }
                 echo "</ol>";
@@ -99,71 +141,25 @@ if(isset($_GET['website_id']) && $_GET['website_id'] !== ""){
     <script>
         jQuery(document).ready(function(){
 
-            jQuery('.wpp-nav-tab-wrapper')
-
-            jQuery(document).on('click', '.ajax-action-btn', function(){
-                let website_id = jQuery(this).data('id');
-                let action_type = jQuery(this).attr('id')
-                let website_url = jQuery('#website_url').attr('href')
-                $this = jQuery(this);
-                jQuery(this).addClass('disabled')
-                jQuery('.result').empty();
-                jQuery.ajax({
-                    url: ajaxurl, // WordPress AJAX handler
-                    type: 'POST',
-                    data: {
-                        action: 'WPP_push_products',
-                        id: website_id,
-                        action_type: action_type
-                    },
-                    success: function(response) {
-                        $this.removeClass('disabled')
-                        if(response !== "" && response.action_type == 'fetch_products'){
-                            let products = response.products;
-                            if(products != ""){
-                                let data = products.map((item) => {
-                                    return `<li>Fetched: <a target="_blank" href="${website_url}/product/${item.slug}">${item.name}</a> </li>`;
-                                })
-                                jQuery('.result').html(`<h3>Fetched Products</h3><ol>${data.join('')}</ol>`)
-                            }else{
-                                jQuery('.result').html(`<h3>No Product Found</h3>`)
-                            }
-                            
-                        }
-
-                        if(response !== "" && response.action_type == 'push_products'){
-                            const result = response.result;
-                            let created_products = result.create.map((item) => {
-                                return item.id != 0 ? {'id' : item.id, 'name' : item.name, 'slug': item.slug} : null;
-                            }).filter(item => item !== null)
-
-                            if (created_products.length > 0) {
-                                let itemData = created_products.map(item => {
-                                    return `<li data-id="${item.id}"> Created: <a target="_blank" data-slug="${item.slug}" href="${website_url}/product/${item.slug}">${item.name}</a></li>`;
-                                });
-
-                                jQuery('.result').html(`<h3>Products Created</h3><ol>${itemData.join('')}</ol>`);
-
-                                // pushChildCategories(website_id, 0, created_categories);
-                            }else{
-                                jQuery('.result').html('<h3>Something went wrong</h3>')
-                            }
-                        }
-                    },
-                    error: function(error) {
-                        console.log(error);
-                    }
-                })
-            })
-
             // push single product
             jQuery(document).on('click', '.push_product', function(e){
                 e.preventDefault();
                 let id = jQuery(this).parent().data('id');
                 let name = jQuery(this).parent().data('name');
                 let slug = jQuery(this).parent().data('slug');
-                let website_id = jQuery(this).closest('.product_list').data('website_id');
+                let website_id = jQuery("#website_url").data('id')
                 let $this = jQuery(this);
+                let website_categories = [];
+                let website_category = jQuery('#website-category').val();
+                let website_child_category = jQuery('#website-child-category').val();
+                if(website_category == ""){
+                    alert("Please select category, where want to push product")
+                    return;
+                }
+                website_categories.push(website_category)
+                if(website_child_category !== "" && website_child_category !== "--Select Child Cat--"){
+                    website_categories.push(website_child_category)
+                }
                 jQuery(this).addClass('updating-message disabled')
                 jQuery(this).removeClass('push_product')
                 jQuery(this).text('Syncing...')
@@ -176,28 +172,56 @@ if(isset($_GET['website_id']) && $_GET['website_id'] !== ""){
                         name: name,
                         slug: slug,
                         id: id,
+                        cat_id: website_categories
                     },
                     success: function(response){
                         console.log(response);
                         if(response !== ""){
                             $this.removeClass('updating-message')
-                            const result = response.result;
+                            const result = response;
                             if(result.hasOwnProperty('message')){
                                 $this.text(result.code)
                             }else{
-                                $this.text("Synced")
+                                $this.text("Success")
                             }
                         }
                     }
                 })
             })
 
-            jQuery(document).on('click', '.clear-data', function(){
-                jQuery('.result').empty()
-            })
-
-            jQuery(document).on('click', '.reload', function(){
-                location.reload(true);
+            // select category
+            jQuery(document).on('change', '#website-category', function(){
+                jQuery('.cat-spinnner').show()
+                jQuery('#website-child-category').remove()
+                let parent_cat_id = jQuery(this).val()
+                let website_id = jQuery("#website_url").data('id')
+                let $this = jQuery(this);
+                if(parent_cat_id){
+                    jQuery.ajax({
+                        url: ajaxurl, 
+                        type: 'POST',
+                        data: {
+                            action: 'WPP_get_child_cats',
+                            cat_id: parent_cat_id,
+                            website_id: website_id,
+                        },
+                        success: function(response){
+                            console.log(response);
+                            if(response !== ""){
+                                let child_cats = response.map((item, index) => {
+                                    return "<option value='"+item.id+"'>" + item.name + "</option>";
+                                })
+                                jQuery('.cat-spinnner').hide()
+                                if(child_cats.length !== 0){
+                                    let child_cat_html = "<select id='website-child-category'><option>--Select Child Cat--</option></select>";
+                                    $this.after("<select id='website-child-category'><option>--Select Child Cat--</option>"+ child_cats + "</select>")
+                                }
+                               
+                            }
+                        }
+                    })
+                }
+                
             })
         })
     </script>
@@ -220,7 +244,7 @@ if(isset($_GET['website_id']) && $_GET['website_id'] !== ""){
                 <option value="<?= $website->id?>"><?= $website->website_url?></option> 
             <?php endforeach; ?>
             </select>
-            
+            <input type="hidden" name="tab" value="1" />
             <input type="submit" value="Proceed" class="btn button">
         </form>
     <section>

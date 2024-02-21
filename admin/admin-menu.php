@@ -30,14 +30,14 @@ function WPP_admin_menu() {
 		null
 	);
 
-	add_submenu_page(
-		'woo-product-push', 
-		"Product Categories Push", 
-		"Product Categories Push", 
-		"manage_options", 
-		'category-push', 
-		"WPP_category_push"
-	);
+	// add_submenu_page(
+	// 	'woo-product-push', 
+	// 	"Product Categories Push", 
+	// 	"Product Categories Push", 
+	// 	"manage_options", 
+	// 	'category-push', 
+	// 	"WPP_category_push"
+	// );
 
 	add_submenu_page(
 		'woo-product-push', 

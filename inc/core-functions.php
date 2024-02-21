@@ -434,13 +434,12 @@ add_action('wp_ajax_WPP_push_product', 'WPP_ajax_push_product');
 function WPP_ajax_push_product(){
    if(isset($_POST['id']) && $_POST['id'] !== ''){
         $product_id = $_POST['id'];
+        $category_ids = $_POST['cat_id'];
         $website_id = $_POST['website_id'];
         $slug = $_POST['slug'];
         $name = $_POST['name'];
 
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'WPP_websites';
-        $website_data = $wpdb->get_results( "SELECT * FROM $table_name where id = $website_id");
+        $website_data = get_website_data($website_id);
         if(!empty($website_data )){
             $consumer_key = $website_data[0]->consumer_key;
             $consumer_secret = $website_data[0]->consumer_secret;
@@ -448,14 +447,32 @@ function WPP_ajax_push_product(){
             $product_endpoint = '/wp-json/wc/v3/products';
             $product_url = $website_url . $product_endpoint;
             $product = wc_get_product( $product_id );
-            $product_cats = $product->category_ids;
-            $images = array(
-                [
-                    'src' => 'https://www.adilqadri.com/cdn/shop/files/Shanaya12ml.5.jpg'
-                ],
-            );
-            foreach ($product_cats as $category) {
-                $cats[] = array('id' => $category);
+            $images = array();
+            $cats = array();
+            $featured_image_id = get_post_thumbnail_id($product->get_id());
+            if ($featured_image_id) {
+                $featured_image_src = wp_get_attachment_image_src($featured_image_id, 'full');
+                if ($featured_image_src) {
+                    $images[] = [
+                        'src' => $featured_image_src[0],
+                    ];
+                }
+            }
+
+            // Fetch additional product images if available
+            $product_gallery_ids = $product->get_gallery_image_ids();
+            if (!empty($product_gallery_ids)) {
+                foreach ($product_gallery_ids as $gallery_image_id) {
+                    $gallery_image_src = wp_get_attachment_image_src($gallery_image_id, 'full');
+                    if ($gallery_image_src) {
+                        $images[] = [
+                            'src' => $gallery_image_src[0]
+                        ];
+                    }
+                }
+            }
+            foreach ($category_ids as $category_id) {
+                $cats[] = array('id' => $category_id);
             }
 
             $product_data = [
@@ -509,10 +526,75 @@ function WPP_ajax_push_product(){
             $response = curl_exec($ch);
             if (!curl_errno($ch)) {
                 $decoded_response = json_decode($response, true);
-                $data = array(
-                    'result' => $decoded_response,
-                );
-                echo wp_send_json($data);
+                if($decoded_response['code'] == 'product_invalid_sku'){
+                    $product_id = $decoded_response['data']['resource_id'];
+                    $product_url = $product_url . '/' .$product_id;
+                    $decoded_response = update_remote_product($product_url, $consumer_key, $consumer_secret, $product_data);
+                }
+                echo wp_send_json($decoded_response);
+            }
+            
+        }
+   }
+    die;
+}
+
+// update remote product
+function update_remote_product($product_url, $consumer_key, $consumer_secret, $product_data){
+    $post_data = json_encode($product_data);
+    $ch = curl_init($product_url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT'); // Set request method to PUT
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $post_data);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+        'Content-Type: application/json',
+        'Authorization: Basic ' . base64_encode("$consumer_key:$consumer_secret"),
+    ));
+    
+    $response = curl_exec($ch);
+    if (!curl_errno($ch)) {
+        return $decoded_response = json_decode($response, true);
+    }
+}
+
+function get_website_data($id){
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'WPP_websites';
+    $website_data = $wpdb->get_results( "SELECT * FROM $table_name where id = $id");
+    return $website_data;
+}
+
+
+// get child categories
+add_action('wp_ajax_WPP_get_child_cats', 'WPP_get_child_cats');
+function WPP_get_child_cats(){
+   if(isset($_POST['cat_id']) && $_POST['cat_id'] !== ''){
+        $category_id = $_POST['cat_id'];
+        $website_id = $_POST['website_id'];
+        $website_data = get_website_data($website_id);
+        
+        if(!empty($website_data )){
+            $consumer_key = $website_data[0]->consumer_key;
+            $consumer_secret = $website_data[0]->consumer_secret;
+            $website_url = $website_data[0]->website_url;
+            $category_endpoint = '/wp-json/wc/v3/products/categories?per_page=99&parent=' . $category_id;
+            $category_url = $website_url . $category_endpoint;
+
+            $ch = curl_init($category_url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HTTPGET, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+                'Content-Type: application/json',
+                'Authorization: Basic ' . base64_encode("$consumer_key:$consumer_secret"),
+            ));
+
+            $response = curl_exec($ch);
+            $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+            $response = curl_exec($ch);
+            if (!curl_errno($ch)) {
+                $decoded_response = json_decode($response, true);
+                echo wp_send_json($decoded_response);
             }
             
         }
@@ -521,13 +603,14 @@ function WPP_ajax_push_product(){
 }
 
 
+
 add_action('wp_ajax_testing', 'testing_func');
 function testing_func(){
-    $website_url = 'https://woo.wordpressdeveloperindia.com';
+    $website_url = 'https://blizzmart.com';
     $category_endpoint = '/wp-json/wc/v3/products/categories?per_page=99';
     $category_url = $website_url . $category_endpoint;
-    $consumer_secret = 'cs_fabe68c84e3bb2a9f04eacea71b3cdcb74e117c8';
-    $consumer_key = 'ck_14d8e0ad8861046b5c09f920697b4931156b3f6a';
+    $consumer_secret = 'ck_2a204d6e4a480d5c5882dcc44785a60870337492';
+    $consumer_key = 'cs_a40ed2dda6b1a2ce1254cb8e3ca2a0f25dc81932';
 
     $ch = curl_init($category_url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);

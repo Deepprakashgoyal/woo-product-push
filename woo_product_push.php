@@ -11,6 +11,8 @@
  if (! defined( 'ABSPATH' )) {
 	exit;
 }
+global $wpdb;
+define('WPP_WEBSITES_TABLE', $wpdb->prefix . 'WPP_websites');
 
 
 function WPP_plugin_styles_scripts() {
@@ -18,6 +20,8 @@ function WPP_plugin_styles_scripts() {
     wp_enqueue_style('dataTable-css');
     wp_register_script( 'dataTable-js', plugin_dir_url(__FILE__).'assets/js/jquery.dataTables.js');
     wp_enqueue_script('dataTable-js');
+    wp_enqueue_script( 'sweet-alert', 'https://cdn.jsdelivr.net/npm/sweetalert2@11', array(), null, true );
+
 }
 add_action('admin_enqueue_scripts', 'WPP_plugin_styles_scripts');
 
@@ -198,3 +202,8 @@ add_action('init', 'disable_heartbeat', 1);
 function disable_heartbeat() {
     wp_deregister_script('heartbeat');
 }
+
+
+add_action('woocommerce_checkout_before_order_review', function(){
+    echo "working";
+});
